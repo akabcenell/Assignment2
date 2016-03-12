@@ -3,7 +3,6 @@ import threading
 import Queue
 import random
 import datetime
-import time
 DEFAULT_TIMEOUT = None
 IP_ADDRESS = 'localhost'
 FILEPATH = 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/'
@@ -30,6 +29,7 @@ class VM(threading.Thread):
         threading.Timer((1.0/self.clockspeed), clock_cycle, args = (self.queue, self.selfport, self.vm1port, self.vm2port, self.LC, self.filepath, self.clockspeed)).start()
 
 def clock_cycle(queue, selfport, vm1port, vm2port, LC, filepath, clockspeed):
+    threading.Timer((1.0/clockspeed), clock_cycle, args = (queue, selfport, vm1port, vm2port, LC, filepath, clockspeed)).start()
     if queue.empty():
         op = random.randint(1,10)
         if op == 1:
@@ -54,7 +54,6 @@ def clock_cycle(queue, selfport, vm1port, vm2port, LC, filepath, clockspeed):
     print('here' + str(selfport))
     with open(filepath, 'a') as file_:
         file_.write(str(datetime.datetime.now())+'\t' + str(LC[0]) + '\t' + str(op) + '\t' + str(queue.qsize()) + '\t' + str(sender) + '\n')
-    threading.Timer((1.0/clockspeed), clock_cycle, args = (queue, selfport, vm1port, vm2port, LC, filepath, clockspeed)).start()
 
 def server_socket_thread(port, queue):
     socket.setdefaulttimeout(DEFAULT_TIMEOUT)
