@@ -3,15 +3,23 @@ import threading
 import Queue
 import random
 import datetime
+import time
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
 DEFAULT_TIMEOUT = None
 IP_ADDRESS = 'localhost'
 FILEPATH = 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/'
+TIME_OF_RUN = 60
+EVENT_NUM = 10
 
 class VM(threading.Thread):
     def __init__(self, clockspeed, selfport, vm1port, vm2port):
-        self.LC = [0]
+        self.LC = 0
         self.queue = Queue.Queue()
         self.sst = threading.Thread(target = server_socket_thread, args=(selfport, self.queue))
+        self.sst.daemon = True
         self.sst.start()
         self.selfport = selfport
         self.vm1port = vm1port
@@ -20,40 +28,40 @@ class VM(threading.Thread):
         self.filepath = FILEPATH + str(selfport) + '.txt'
         print(self.filepath)
         with open(self.filepath, 'w') as file_:
-            file_.write('system time\tlogical clock time\toperation\tqueue size\treceived from\n')
-        print('here' + str(self.selfport))
+            file_.write('system time\tLC\top\tqsize\treceived from\n')
         threading.Thread.__init__(self)
 
 
     def run(self):
-        threading.Timer((1.0/self.clockspeed), clock_cycle, args = (self.queue, self.selfport, self.vm1port, self.vm2port, self.LC, self.filepath, self.clockspeed)).start()
-
-def clock_cycle(queue, selfport, vm1port, vm2port, LC, filepath, clockspeed):
-    threading.Timer((1.0/clockspeed), clock_cycle, args = (queue, selfport, vm1port, vm2port, LC, filepath, clockspeed)).start()
-    if queue.empty():
-        op = random.randint(1,10)
-        if op == 1:
-            cst = threading.Thread(target = client_socket_thread, args = (vm1port, str(selfport) + ' ' + str(LC[0])))
-            cst.start()
-        elif op == 2:
-            cst = threading.Thread(target = client_socket_thread, args = (vm2port, str(selfport) + ' ' + str(LC[0])))
-            cst.start()
-        elif op == 3:
-            cst1 = threading.Thread(target = client_socket_thread, args = (vm1port, str(selfport) + ' ' + str(LC[0])))
-            cst1.start()
-            cst2 = threading.Thread(target = client_socket_thread, args = (vm2port, str(selfport) + ' ' + str(LC[0])))
-            cst2.start()
-        LC[0] = LC[0] + 1
-        sender = 0
-    else:
-        op = 0
-        msg = queue.get()
-        sender = msg.split()[0]
-        LC_received = int(msg.split()[1])
-        LC[0] = max(LC_received + 1, LC[0] + 1)
-    print('here' + str(selfport))
-    with open(filepath, 'a') as file_:
-        file_.write(str(datetime.datetime.now())+'\t' + str(LC[0]) + '\t' + str(op) + '\t' + str(queue.qsize()) + '\t' + str(sender) + '\n')
+        initial_time = datetime.datetime.now()
+        cycletime = 1.0/self.clockspeed
+        cycle_start_time = datetime.datetime.now()
+        while((cycle_start_time-initial_time).total_seconds() < TIME_OF_RUN):
+            if self.queue.empty():
+                op = random.randint(1,EVENT_NUM)
+                if op == 1:
+                    cst = threading.Thread(target = client_socket_thread, args = (self.vm1port, str(self.selfport) + ' ' + str(self.LC)))
+                    cst.start()
+                elif op == 2:
+                    cst = threading.Thread(target = client_socket_thread, args = (self.vm2port, str(self.selfport) + ' ' + str(self.LC)))
+                    cst.start()
+                elif op == 3:
+                    cst1 = threading.Thread(target = client_socket_thread, args = (self.vm1port, str(self.selfport) + ' ' + str(self.LC)))
+                    cst1.start()
+                    cst2 = threading.Thread(target = client_socket_thread, args = (self.vm2port, str(self.selfport) + ' ' + str(self.LC)))
+                    cst2.start()
+                self.LC += 1
+                sender = 0
+            else:
+                op = 0
+                msg = self.queue.get()
+                sender = msg.split()[0]
+                LC_received = int(msg.split()[1])
+                LC = max(LC_received + 1, self.LC + 1)
+            with open(self.filepath, 'a') as file_:
+                file_.write(str(cycle_start_time.time())+'\t' + str(self.LC) + '\t' + str(op) + '\t' + str(self.queue.qsize()) + '\t' + str(sender) + '\n')
+            time.sleep(cycletime - (datetime.datetime.now() - cycle_start_time).total_seconds())
+            cycle_start_time = datetime.datetime.now()
 
 def server_socket_thread(port, queue):
     socket.setdefaulttimeout(DEFAULT_TIMEOUT)
@@ -79,13 +87,43 @@ def client_socket_thread(target_port, msg):
         raise RuntimeError("socket connection broken")
     clientsocket.close()
 
-vm1port = 1025
-vm2port = 1026
-vm3port = 1027
-vm1 = VM(random.randint(1,6), vm1port, vm2port, vm3port)
-vm2 = VM(random.randint(1,6), vm2port, vm1port, vm3port)
-vm3 = VM(random.randint(1,6), vm3port, vm1port, vm2port)
+def run_vm(port1, port2, port3):
+    vm1port = port1
+    vm2port = port2
+    vm3port = port3
+    vm1 = VM(random.randint(1,6), vm1port, vm2port, vm3port)
+    vm2 = VM(random.randint(1,6), vm2port, vm1port, vm3port)
+    vm3 = VM(random.randint(1,6), vm3port, vm1port, vm2port)
+    #vm1 = VM(1, vm1port, vm2port, vm3port)
+    #vm2 = VM(100, vm2port, vm1port, vm3port)
+    #vm3 = VM(100, vm3port, vm1port, vm2port)
 
-vm1.start()
-vm2.start()
-vm3.start()
+    vm1.start()
+    vm2.start()
+    vm3.start()
+
+def analyze(filepaths):
+    figure1 = plt.figure()
+    ax1 = figure1.add_subplot(111)
+    figure2 = plt.figure()
+    ax2 = figure2.add_subplot(111)
+    figure3 = plt.figure()
+    ax3 = figure3.add_subplot(111)
+    for f in filepaths:
+        a = pd.read_table(f)
+        times = a.values[:,0]
+        for n in range(0,len(times)):
+            times[n] = datetime.datetime.strptime(times[n], "%H:%M:%S.%f")
+        LC = a.values[:,1]
+        ax1.plot_date(times,LC, '-')
+        deltaLC = np.diff(LC)
+        deltaLC = np.insert(deltaLC,0,1)
+        ax3.plot_date(times,deltaLC)
+        qsize = a.values[:,3]
+        ax2.plot_date(times,qsize,'-')
+    plt.show()
+
+if __name__ == '__main__':
+    run_vm(1000,1001,1002)
+    #filepaths = ['C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1000.txt', 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1001.txt', 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1002.txt']
+    #analyze(filepaths)
