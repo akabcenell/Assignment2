@@ -8,17 +8,30 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-DEFAULT_TIMEOUT = None
-IP_ADDRESS = 'localhost'
-FILEPATH = 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/'
-TIME_OF_RUN = 60
-EVENT_NUM = 10
+DEFAULT_TIMEOUT = None #socket timeout
+IP_ADDRESS = 'localhost' #run sockets on localhost
+FILEPATH = 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/' #filepath to save logs to
+TIME_OF_RUN = 60 #time to run VM system in seconds
+EVENT_NUM = 10 #total number of possible events. 3 will be message sends, so there are EVENT_NUM-3 internal events
+
 
 class VM(threading.Thread):
+    '''
+    Class representing each virtual machine. Extends threading.Thread, so runs on its own thread
+    '''
     def __init__(self, clockspeed, selfport, vm1port, vm2port):
+        '''
+        Set up virtual machine, initializing logical clock, starting log file, and beginning to listen on specified port
+        :param clockspeed: Number of clock cycles per second
+        :param selfport: Port to listen on
+        :param vm1port: Port to send messages to vm1 on
+        :param vm2port: Port to send messages to vm2 on
+        '''
         self.LC = 0
         self.queue = Queue.Queue()
         self.sst = threading.Thread(target = server_socket_thread, args=(selfport, self.queue))
+        # makes sure the thread exits when the VM exits so the whole program can exit. Doesn't elegantly shut down, but
+        # seems to have no effect on the resources
         self.sst.daemon = True
         self.sst.start()
         self.selfport = selfport
@@ -34,6 +47,9 @@ class VM(threading.Thread):
 
 
     def run(self):
+        '''
+        Starts clock cycles as defined in the assignment specifications
+        '''
         initial_time = datetime.datetime.now()
         cycletime = 1.0/self.clockspeed
         cycle_start_time = datetime.datetime.now()
@@ -66,6 +82,12 @@ class VM(threading.Thread):
 
 # based on examples from https://docs.python.org/2/howto/sockets.html
 def server_socket_thread(port, queue):
+    '''
+    Starts a server socket that listens on the input port and writes received messages to the queue. Has a blocking
+    infinite loop, so should be run as a separate thread
+    :param port: Port on which to listen for messages
+    :param queue: Queue to add messages to
+    '''
     socket.setdefaulttimeout(DEFAULT_TIMEOUT)
     serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversocket.bind((IP_ADDRESS, port))
@@ -81,6 +103,12 @@ def server_socket_thread(port, queue):
 
 # based on examples from https://docs.python.org/2/howto/sockets.html
 def client_socket_thread(target_port, msg):
+    '''
+    Starts a client thread to send a message to the target port
+    :param target_port: The port to which the message should be sent
+    :param msg: The message to send
+    :return:
+    '''
     socket.setdefaulttimeout(DEFAULT_TIMEOUT)
     clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     target_port = target_port
@@ -91,6 +119,12 @@ def client_socket_thread(target_port, msg):
     clientsocket.close()
 
 def run_vm(port1, port2, port3):
+    '''
+    Runs the system of VMs
+    :param port1: Port on which vm1 listens
+    :param port2: Port on which vm2 listens
+    :param port3: Port on which vm3 listens
+    '''
     vm1port = port1
     vm2port = port2
     vm3port = port3
@@ -103,6 +137,12 @@ def run_vm(port1, port2, port3):
     vm3.start()
 
 def plot_vm_system(filepaths, clockspeed_array):
+    '''
+    Analysis code to plot time evolution of virtual machine system
+    :param filepaths:
+    :param clockspeed_array:
+    :return:
+    '''
     figure1 = plt.figure()
     ax1 = figure1.add_subplot(111)
     plt.title('Logical Clock Values vs System Time')
@@ -145,6 +185,6 @@ if __name__ == '__main__':
     #run_vm(1000,1001,1002)
 
     #run plotting code
-    clockspeed_array = [2,6,3]
-    filepaths = ['C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1000_run5.txt', 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1001_run5.txt', 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1002_run5.txt']
+    clockspeed_array = [3,6,3]
+    filepaths = ['C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1000_external.txt', 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1001_external.txt', 'C:/Users/aakab_000/PycharmProjects/Assignment2/Data/1002_external.txt']
     plot_vm_system(filepaths, clockspeed_array)
